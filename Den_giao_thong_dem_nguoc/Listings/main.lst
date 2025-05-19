@@ -1,0 +1,229 @@
+C51 COMPILER V9.60.7.0   MAIN                                                              09/30/2024 13:53:30 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\Objects\main.obj
+COMPILER INVOKED BY: D:\Keil_v5\C51\BIN\C51.EXE main.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\main
+                    -.lst) TABS(2) OBJECT(.\Objects\main.obj)
+
+line level    source
+
+   1          /*LE HONG PHONG - 22119210*/
+   2          #include <AT89X52.h>
+   3          
+   4          sbit SW_chedo = P3 ^ 2; /*chan nhan tin hieu chuyen che do*/
+   5          sbit SW = P3 ^ 3;/*chan nhan tin hieu chuyen huong*/
+   6          
+   7          #define Display P0 /*xuat du lieu led 7 doan*/
+   8          #define chonLED P2 /*P2.4,P2.3,P2.2 dieukhien 8 led 7 doan*/
+   9          
+  10          int chedo = 1;
+  11          int chuyenhuong = 1;
+  12          int chuyenVang = 0;
+  13          
+  14          /*du lien hien thi so*/
+  15          unsigned char code Code7segCatot[] = {0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d,
+  16                                                0x7d, 0x07, 0x7f, 0x6f, 0x77};
+  17          /*du lieu trang thai den*/
+  18          /*4 trang thai*/
+  19          /*do0 sang, vang0 tat, xanh0 tat, do1 tat, vang1 tat, xanh1 sang*/
+  20          /*do0 sang, vang0 tat, xanh0 tat, do1 tat, vang1 sang, xanh1 tat*/
+  21          /*do0 tat, vang0 tat, xanh0 sang, do1 sang, vang1 tat, xanh1 tat*/
+  22          /*do0 tat, vang0 sang, xanh0 tat, do1 sang, vang1 tat, xanh1 tat*/
+  23          unsigned char code StatusLED[] = {0x81, 0x82, 0x24, 0x44};
+  24          
+  25          /*du lieu chan chon hien thi led P2 = {0}{0}{0}{P2.4}_{P2.3}{P2.2}{0}{0}*/ 
+  26          unsigned char code BNsochay[] = {0x00, 0x18, 0x04, 0x1c},
+  27                        DTsochay[] = {0x18, 0x00, 0x1c, 0x04};
+  28          
+  29          void delay_ms(unsigned int time) {
+  30   1        /* f = 12M hz*/
+  31   1        /*f vào timer 1 = 12M/2 = 6M*/
+  32   1        /*T = 1/6M s*/
+  33   1        /* 6000 --> 1ms*/
+  34   1        /*59536--> 65535 -> 0 = 1ms*/
+  35   1        while (time--) {
+  36   2          TMOD = 0x01;
+  37   2          TH1 = 0xE8;
+  38   2          TL1 = 0x90;
+  39   2          TR1 = 1;
+  40   2          while (!TF1)
+  41   2            ;
+  42   2          TF1 = 0;
+  43   2        }
+  44   1      }
+  45          void HienThiDen(char Status) {
+  46   1        
+  47   1        int i;
+  48   1        P3_6 = 0; /*clock canh len*/
+  49   1        P3_5 = 0;/*chan chot du lieu*/
+  50   1        /*74hc595 nhan du lieu noi tiep khi xung canh lenh SH_CP tac dong,
+  51   1        moi xung canh len la nhan 1 bit
+  52   1        xuat du lieu khi xung canh lenh ST_CP tac dong*/
+  53   1        for (i = 0; i < 8; i++) {
+  54   2          P3_4 = Status>>7;
+C51 COMPILER V9.60.7.0   MAIN                                                              09/30/2024 13:53:30 PAGE 2   
+
+  55   2          Status <<=1;
+  56   2          delay_ms(1);
+  57   2          P3_6 = 1;
+  58   2          delay_ms(1);
+  59   2          P3_6 = 0;
+  60   2        }
+  61   1        P3_5 = 1;
+  62   1        
+  63   1      }
+  64          /*chi ho tro so 2 chu so*/
+  65          void HienThiSoChay(char *Huong, int demA, int demB) {
+  66   1        int tanso;
+  67   1        int dem;
+  68   1        for (dem = demA; dem >= demB; dem--) {
+  69   2          if (chedo == 1) {
+  70   3            return;
+  71   3          }
+  72   2          for (tanso = 0; tanso < 60; tanso++) {
+  73   3            chonLED = Huong[0];
+  74   3            Display = Code7segCatot[dem % 10];
+  75   3            delay_ms(3);
+  76   3            chonLED = Huong[1];
+  77   3            Display = Code7segCatot[(dem - 3) % 10];
+  78   3            delay_ms(3);
+  79   3            chonLED = Huong[2];
+  80   3            Display = Code7segCatot[dem / 10];
+  81   3            delay_ms(3);
+  82   3            chonLED = Huong[3];
+  83   3            Display = Code7segCatot[(dem - 3) / 10];
+  84   3            delay_ms(3);
+  85   3            #hien thi den led matrix
+*** WARNING C315 IN LINE 85 OF main.c: unknown #directive 'hien'
+  86   3            Display = 0x00;
+  87   3            delay_ms(3);      
+  88   3          }
+  89   2        }
+  90   1      }
+  91          /*chi ho tro so 2 chu so*/
+  92          void HienThiSoVang(char *Huong, int demA, int demB) {
+  93   1        int tanso;
+  94   1        int dem;
+  95   1        for (dem = demA; dem >= demB; dem--) {
+  96   2          if (chedo == 1) {
+  97   3            return;
+  98   3          }
+  99   2          for (tanso = 0; tanso < 60; tanso++) {
+ 100   3            chonLED = Huong[0];
+ 101   3            Display = Code7segCatot[dem % 10];
+ 102   3            delay_ms(3);
+ 103   3            chonLED = Huong[1];
+ 104   3            Display = Code7segCatot[dem % 10];
+ 105   3            delay_ms(3);
+ 106   3            chonLED = Huong[2];
+ 107   3            Display = Code7segCatot[dem / 10];
+ 108   3            delay_ms(3);
+ 109   3            chonLED = Huong[3];
+ 110   3            Display = Code7segCatot[dem / 10];
+ 111   3            delay_ms(3);
+ 112   3            #hien thi den led matrix
+*** WARNING C315 IN LINE 112 OF main.c: unknown #directive 'hien'
+ 113   3            Display = 0x00;
+ 114   3            delay_ms(3);
+C51 COMPILER V9.60.7.0   MAIN                                                              09/30/2024 13:53:30 PAGE 3   
+
+ 115   3          }
+ 116   2        }
+ 117   1      }
+ 118          void Traffic_Auto(void) {
+ 119   1        // delay10s
+ 120   1        HienThiDen(StatusLED[0]);
+ 121   1        HienThiSoChay(BNsochay, 30, 3);
+ 122   1        // delay3s
+ 123   1        HienThiDen(StatusLED[1]);
+ 124   1        HienThiSoVang(BNsochay, 3, 0);
+ 125   1        // delay10s
+ 126   1        HienThiDen(StatusLED[2]);
+ 127   1        HienThiSoChay(DTsochay, 30, 3);
+ 128   1        // delay3s
+ 129   1        HienThiDen(StatusLED[3]);
+ 130   1        HienThiSoVang(DTsochay, 3, 0);
+ 131   1      }
+ 132          void Interrupt_Timer0(void) {
+ 133   1        /* f = 12M hz*/
+ 134   1        /*f vào timer 0 = 12M/12 = 1M*/
+ 135   1        /*T = 1/6M s*/
+ 136   1        /* 1000 --> 1ms*/
+ 137   1        /*64536--> 65535 -> 0 = 1ms*/
+ 138   1        /* 16 bits timer */
+ 139   1        TMOD = 0x01;
+ 140   1        /* setup 1ms for overforlow */
+ 141   1        TH0 = 0xFC;
+ 142   1        TL0 = 0x18;
+ 143   1        /* Enable interrupt */
+ 144   1        ET0 = 1;
+ 145   1        EA = 1;
+ 146   1        /* Enable timer0 */
+ 147   1        TR0 = 1;
+ 148   1      }
+ 149          
+ 150          void ISR_TIMER(void) interrupt 1 { 
+ 151   1        if (ET0 == 1) {
+ 152   2          if (SW_chedo == 0) {
+ 153   3            delay_ms(100);
+ 154   3            if (SW_chedo == 1) {
+ 155   4              chedo++;
+ 156   4            }
+ 157   3            if (chedo > 1)
+ 158   3              chedo = 0;
+ 159   3          }
+ 160   2          /*setup 1ms for overforlow*/
+ 161   2          TH0 = 0xFC;
+ 162   2          TL0 = 0x18;
+ 163   2        }
+ 164   1      }
+ 165          
+ 166          void main(void) {
+ 167   1        Interrupt_Timer0();/*1ms interrupt se kiem tra trang thai chan SW_chedo*/
+ 168   1        while (1) {
+ 169   2          if (chedo) {
+ 170   3            P0 = 0x00;
+ 171   3            if (SW == 0) {
+ 172   4              delay_ms(100);
+ 173   4              if (SW == 1) {
+ 174   5                chuyenhuong++;
+ 175   5              }
+ 176   4              if (chuyenhuong > 1)
+C51 COMPILER V9.60.7.0   MAIN                                                              09/30/2024 13:53:30 PAGE 4   
+
+ 177   4                chuyenhuong = 0;
+ 178   4            }
+ 179   3            if (chuyenhuong) {
+ 180   4              if(chuyenVang){
+ 181   5                HienThiDen(StatusLED[3]);
+ 182   5                delay_ms(2000);
+ 183   5              }
+ 184   4              HienThiDen(StatusLED[0]);
+ 185   4              chuyenVang = 0;
+ 186   4            } else {
+ 187   4              if(!chuyenVang){
+ 188   5                HienThiDen(StatusLED[1]);
+ 189   5                delay_ms(2000);
+ 190   5              }
+ 191   4              HienThiDen(StatusLED[2]);
+ 192   4              chuyenVang = 1;
+ 193   4            }
+ 194   3          } else
+ 195   2            Traffic_Auto();
+ 196   2        }
+ 197   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    829    ----
+   CONSTANT SIZE    =     23    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      6      22
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  2 WARNING(S),  0 ERROR(S)

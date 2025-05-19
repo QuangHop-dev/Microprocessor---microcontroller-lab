@@ -1,0 +1,166 @@
+C51 COMPILER V9.60.7.0   MAIN                                                              12/01/2024 16:57:14 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN main.OBJ
+COMPILER INVOKED BY: D:\Keil_v5\C51\BIN\C51.EXE main.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND TABS(2)
+
+line level    source
+
+   1          /*
+   2          0xFFA25D: CH-
+   3          0xFF629D: CH
+   4          0xFFE21D: CH+
+   5          0xFF22DD: PREV
+   6          0xFF02FD: NEXT
+   7          0xFFC23D: PLAY/PAUSE
+   8          0xFFE01F: VOL-
+   9          0xFFA857: VOL+
+  10          0xFF906F: EQ
+  11          0xFF6897: 0
+  12          0xFF9867: 100+
+  13          0xFFB04F: 200+
+  14          0xFF30CF: 1
+  15          0xFF18E7: 2
+  16          0xFF7A85: 3
+  17          0xFF10EF: 4
+  18          0xFF38C7:5
+  19          0xFF5AA5: 6
+  20          0xFF4280: 7
+  21          0xFF4AB5: 8
+  22          0xFF52AD: 9
+  23          */
+  24          #include <REG51.H>
+  25          unsigned char irKey = 0;
+  26          unsigned long bitPattern = 0;
+  27          unsigned long newKey = 0;
+  28          unsigned long pre_newKey = 0;
+  29          unsigned char timerValue;
+  30          unsigned char msCount = 0;
+  31          char pulseCount = 0;
+  32          void Timer0_Init(void);
+  33          unsigned char Decode_IRKey(unsigned char key);
+  34          sbit led1=P2^0;
+  35          sbit led2=P2^2;
+  36          sbit led3=P2^4;
+  37          void main(){
+  38   1        P2 = 0xEA;
+  39   1        Timer0_Init();
+  40   1        EA = 1; // Enable the Global Interrupt bit
+  41   1        while (1)
+  42   1          {
+  43   2              // N?u nh?n du?c phím m?i và phím dó khác v?i phím tru?c dó
+  44   2              if ((newKey != 0) && (pre_newKey != newKey)) 
+  45   2              {
+  46   3                  irKey = Decode_IRKey(newKey);  // Gi?i mã phím di?u khi?n h?ng ngo?i
+  47   3                  
+  48   3                  // Ði?u khi?n 3 LED theo mã phím
+  49   3                  switch (irKey) {
+  50   4                      case 1:  // Ði?u khi?n LED 1 (P2.0)
+  51   4                          led1 = 1;  // Ð?o bit P2.0 (B?t/T?t LED 1)
+  52   4                          break;
+  53   4                      case 2:  // Ði?u khi?n LED 2 (P2.1)
+  54   4                          led2 = 1;  // Ð?o bit P2.1 (B?t/T?t LED 2)
+  55   4                          break;
+C51 COMPILER V9.60.7.0   MAIN                                                              12/01/2024 16:57:14 PAGE 2   
+
+  56   4                      case 3:  // Ði?u khi?n LED 3 (P2.2)
+  57   4                          led3 = 1;  // Ð?o bit P2.2 (B?t/T?t LED 3)
+  58   4                          break;
+  59   4                      case 4:  // Ði?u khi?n LED 1 (P2.0)
+  60   4                          led1 = 0;  // Ð?o bit P2.0 (B?t/T?t LED 1)
+  61   4                          break;
+  62   4                      case 5:  // Ði?u khi?n LED 2 (P2.1)
+  63   4                          led2 = 0;  // Ð?o bit P2.1 (B?t/T?t LED 2)
+  64   4                          break;
+  65   4                      case 6:  // Ði?u khi?n LED 3 (P2.2)
+  66   4                          led3 = 0;  // Ð?o bit P2.2 (B?t/T?t LED 3)
+  67   4                          break;
+  68   4                      default:
+  69   4                          // Không làm gì n?u nh?n mã phím không h?p l?
+  70   4                          break;
+  71   4                  }
+  72   3              }
+  73   2              pre_newKey = newKey;  // Luu l?i mã phím hi?n t?i
+  74   2        } 
+  75   1      }
+  76          unsigned char Decode_IRKey(unsigned char key){
+  77   1        unsigned char returnValue = 0;
+  78   1        switch (key)
+  79   1        {
+  80   2          case 0xFF30CF:
+  81   2            returnValue = 1;
+  82   2            break;
+  83   2          case 0xFF18E7:
+  84   2            returnValue = 2;
+  85   2            break; 
+  86   2          case 0xFF7A85: 
+  87   2            returnValue = 3; 
+  88   2            break; 
+  89   2          case 0xFF10EF: 
+  90   2            returnValue = 4 ; 
+  91   2            break; 
+  92   2          case 0xFF38C7: 
+  93   2            returnValue = 5; 
+  94   2            break; 
+  95   2          case 0xFF5AA5: 
+  96   2            returnValue = 6; 
+  97   2            break; 
+  98   2        }
+  99   1        return returnValue;
+ 100   1      }
+ 101          void timer0_isr() interrupt 1
+ 102          {
+ 103   1        if (msCount < 50)
+ 104   1          msCount++; 
+ 105   1        TH0 = 0xFC; // Reload the timer value for 1ms Delay 
+ 106   1        TL0 = 0x67;
+ 107   1      } 
+ 108          void externalIntr0_ISR() interrupt 0
+ 109          {
+ 110   1        timerValue = msCount;
+ 111   1        msCount = 0;
+ 112   1        TH0 = 0xFC; // Reload the timer value for 1ms Delay
+ 113   1        TL0 = 0x67;
+ 114   1        pulseCount++;
+ 115   1        if ((timerValue >= 50 )) // If the pulse width is greater than 50ms, this will mark S0F
+ 116   1        {
+ 117   2          pulseCount = -2; // First 2 counts needs to be skipped hence pulse count is set to -2
+C51 COMPILER V9.60.7.0   MAIN                                                              12/01/2024 16:57:14 PAGE 3   
+
+ 118   2          bitPattern = 0;
+ 119   2        }
+ 120   1        else if ((pulseCount >= 0 ) && (pulseCount < 32)) // Accumulate the bit values between 0-31.
+ 121   1        {
+ 122   2          if (timerValue >= 2 ) // pulse width greater than 2ms is considered as LOGIC1
+ 123   2            bitPattern |= (unsigned long)1 << (31 - pulseCount);
+ 124   2        }
+ 125   1        else if (pulseCount >= 32 ) // This will mark the End of frame as 32 pulses are received
+ 126   1        { 
+ 127   2          newKey = bitPattern; // Copy the newkey(patter) and set the pulse count to 0
+ 128   2          pulseCount = 0;
+ 129   2        }
+ 130   1      }
+ 131          void Timer0_Init(){
+ 132   1        TMOD |= 0x01; // Timer0 MODE1(16-Bit timer)
+ 133   1        TH0 = 0xFC; // Timer value for 1ms at 11.0592Mhz clock
+ 134   1        TL0 = 0x67;
+ 135   1        TR0 = 1; // Start the Timer
+ 136   1        ET0 = 1; // Enable the Timer Interrupt
+ 137   1        IT0 = 1; // Configure INTO falling edge Interrupt
+ 138   1        EX0 = 1; // Enable the INTO External Interrupt
+ 139   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    367    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     16    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,127 @@
+C51 COMPILER V9.60.7.0   LCD16X2                                                           08/20/2024 07:25:46 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE LCD16X2
+OBJECT MODULE PLACED IN .\Objects\lcd16x2.obj
+COMPILER INVOKED BY: D:\Keil_v5\C51\BIN\C51.EXE lcd16x2.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\l
+                    -cd16x2.lst) TABS(2) OBJECT(.\Objects\lcd16x2.obj)
+
+line level    source
+
+   1          #include <lcd16x2.h>
+   2          void LCD16X2_Enable (void)
+   3          {
+   4   1        LCD_EN = 1;
+   5   1        delay_us(3);
+   6   1        LCD_EN = 0;
+   7   1        delay_us(50);
+   8   1      }
+   9          void LCD16X2_Send4Bit(unsigned char _data)
+  10          {
+  11   1        LCD_D4 = _data & 0x01;
+  12   1        LCD_D5 = (_data>>1)&1;
+  13   1        LCD_D6 = (_data>>2)&1;
+  14   1        LCD_D7 = (_data>>3)&1;
+  15   1      }
+  16          void LCD16X2_SendCommand (unsigned char command, unsigned char reg)
+  17          {
+  18   1        if(reg==0)
+  19   1        {
+  20   2          LCD_RS=0;
+  21   2        }else{
+  22   2          LCD_RS=1;
+  23   2        }
+  24   1        LCD16X2_Send4Bit (command >> 4);
+  25   1        LCD16X2_Enable ();
+  26   1        LCD16X2_Send4Bit (command);
+  27   1        LCD16X2_Enable ();
+  28   1      }
+  29          void LCD16X2_Clear ()
+  30          {
+  31   1        LCD16X2_SendCommand (0x01,0);
+  32   1        delay_ms(5);
+  33   1      }
+  34          void LCD16X2_Init (void)
+  35          {
+  36   1        LCD_RS=0;
+  37   1        LCD_RW=0;
+  38   1        LCD_EN=0;
+  39   1        LCD16X2_Send4Bit(0x03);
+  40   1        LCD16X2_Enable ();
+  41   1        delay_us(5);
+  42   1        LCD16X2_Send4Bit(0x02);
+  43   1        LCD16X2_Enable ();
+  44   1        delay_us(5);
+  45   1        LCD16X2_SendCommand (0x28,0);
+  46   1        LCD16X2_SendCommand (0x0C,0);
+  47   1        LCD16X2_Clear();
+  48   1      }
+  49          void LCD16X2_Gotoxy (unsigned char x, unsigned char y)
+  50          {
+  51   1        unsigned char address;
+  52   1        if(!y)
+  53   1        {
+  54   2          address = (0x80+x);
+C51 COMPILER V9.60.7.0   LCD16X2                                                           08/20/2024 07:25:46 PAGE 2   
+
+  55   2        }else{
+  56   2          address = (0xC0+x);
+  57   2        }
+  58   1        delay_ms(1);
+  59   1        LCD16X2_SendCommand(address,0);
+  60   1        delay_ms(5);
+  61   1      }
+  62          void LCD16X2_PutChar (unsigned char _data)
+  63          {
+  64   1        LCD16X2_SendCommand(_data,1);
+  65   1      }
+  66          void LCD16X2_PutString(unsigned char *s)
+  67          {
+  68   1        while(*s)
+  69   1        {
+  70   2          LCD16X2_PutChar(*s);
+  71   2          s++;
+  72   2        }
+  73   1      }
+  74          void LCD16X2_NumBer (unsigned long number, unsigned char leng)
+  75          {
+  76   1        unsigned char i;
+  77   1        char CacKyTu[20];
+  78   1        unsigned char temp;
+  79   1        
+  80   1        for(i=0;i<leng;i++) {
+  81   2          temp = number % 10;
+  82   2          number = number / 10;
+  83   2          CacKyTu[i] = temp;
+  84   2        }
+  85   1        
+  86   1        for (i=0;i<leng;i++) {
+  87   2          LCD16X2_SendCommand (CacKyTu[leng-1-i] + 48,1);
+  88   2        }
+  89   1      }
+  90          void LCD16X2_controblink_xy(unsigned char x, unsigned char y)
+  91          {
+  92   1        LCD16X2_Gotoxy(x,y);
+  93   1        LCD16X2_SendCommand(0x0F,0);
+  94   1      }
+  95          void LCD16X2_contro_off_xy (unsigned char x, unsigned char y)
+  96          {
+  97   1        LCD16X2_Gotoxy(x,y);
+  98   1        LCD16X2_SendCommand(0x0E,0);
+  99   1        
+ 100   1      }
+ 101          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    346    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----      32
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

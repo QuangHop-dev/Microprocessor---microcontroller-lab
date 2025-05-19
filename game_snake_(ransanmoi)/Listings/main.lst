@@ -1,0 +1,412 @@
+C51 COMPILER V9.60.7.0   MAIN                                                              12/01/2024 23:40:04 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\Objects\main.obj
+COMPILER INVOKED BY: D:\Keil_v5\C51\BIN\C51.EXE main.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\main
+                    -.lst) TABS(2) OBJECT(.\Objects\main.obj)
+
+line level    source
+
+   1          #include <regx52.h>  
+   2          #include <stdlib.h>     // Thu vi?n h? tr? các hàm ng?u nhiên và ti?n ích
+   3          
+   4          /* Ð?nh nghia d? khó */
+   5          #define TIMER0_COUNTER_MAX 10  //Gi?ih?n Timer0 d? di?u khi?n t?c d? trò choi
+   6          #define SNAKE_MAX_LENGTH 64    // Ð? dài t?i da c?a con r?n
+   7          #define GAME_OVER 1            // Tr?ng thái trò choi k?t thúc
+   8          #define GAME_PLAYING 0         // Tr?ng thái trò choi dang ch?y
+   9          
+  10          /* Ð?nh nghia các chân k?t n?i c?a IC 74HC595 */
+  11          sbit CLOCK = P3^6;         // Chân CLOCK di?u khi?n tín hi?u d?ng h?
+  12          sbit LATCH = P3^5;         // Chân LATCH ch?t d? li?u
+  13          sbit DATA = P3^4;          // Chân DATA truy?n d? li?u
+  14          
+  15          /* Bi?n d?m cho các b? d?m th?i gian */
+  16          unsigned char timer2_counter = 0;     // Bi?n d?m cho Timer2
+  17          unsigned char timer0_counter = 0;     // Bi?n d?m cho Timer0
+  18          
+  19          /* B? d?m hi?n th? 8x8 LED */
+  20          unsigned char xdata displayBuffer[8] = {0, 0, 0, 0, 0, 0, 0, 0};  
+  21          // Luu tr?ng thái c?a t?ng hàng LED
+  22          
+  23          /* Ma tr?n giá tr? c?a bàn phím 4x4 */
+  24          char code keypad[17] = {
+  25              10, 'u', 10, 10,    // Hàng 1
+  26              'l', 's', 'r', 10,  // Hàng 2
+  27              10, 'd', 10, 10,    // Hàng 3
+  28              10, 10, 10, 10,     // Hàng 4
+  29              10                  // Ph?n du không dùng
+  30          };
+  31          
+  32          /* C?u trúc bi?u di?n 1 di?m trên màn hình */
+  33          typedef struct {
+  34              unsigned char x;    // T?a d? x
+  35              unsigned char y;    // T?a d? y
+  36          } Point;
+  37          
+  38          /* Ð?i tu?ng trong trò choi */
+  39          Point xdata snake[SNAKE_MAX_LENGTH];  // Danh sách các di?m t?o thành con r?n
+  40          Point apple;                          // V? trí c?a qu? táo
+  41          unsigned char snakeLength = 0;        // Chi?u dài c?a con r?n
+  42          unsigned char snakeDirection = 0;     // Hu?ng di chuy?n c?a con r?n
+  43          bit gameState = GAME_OVER;            // Tr?ng thái trò choi
+  44          
+  45          /* Khai báo các hàm trò choi */
+  46          void Snake_Display();                 // Hi?n th? con r?n
+  47          void Snake_Step();                    // C?p nh?t tr?ng thái con r?n
+  48          unsigned char isSnakeHitItself();     // Ki?m tra r?n t? va ch?m
+  49          void Apple_Create();                  // T?o qu? táo m?i
+  50          void Apple_Display();                 // Hi?n th? qu? táo
+  51          void Display_Clear();                 // Xóa b? d?m hi?n th?
+  52          void Display_Point(Point);            // Hi?n th? 1 di?m trên LED
+  53          void Display_Point2(unsigned x, unsigned y);  // Hi?n th? 1 di?m v?i t?a d? 
+  54          void Keypad_Read();                   // Ð?c bàn phím
+C51 COMPILER V9.60.7.0   MAIN                                                              12/01/2024 23:40:04 PAGE 2   
+
+  55          char Keypad_Check();                  // Ki?m tra tr?ng thái bàn phím
+  56          char Keypad_Position(unsigned short value);  // L?y v? trí nh?n trên bàn phím
+  57          
+  58          /* Các hàm khác */
+  59          void Matrix_StartDisplay();           // B?t d?u hi?n th? LED ma tr?n
+  60          void Game_Init();                     // Kh?i t?o trò choi
+  61          void Game_Start();                    // B?t d?u trò choi
+  62          void Game_Stop();                     // D?ng trò choi
+  63          
+  64          void main () {
+  65   1          // Bi?n dùng d? x? lý bàn phím
+  66   1          unsigned char counter2 = 0;
+  67   1          char key_clicked = 0;       // Phím v?a nh?n
+  68   1          char pre_key_clicked = 0;     // Phím nh?n tru?c dó
+  69   1      
+  70   1          /* Thi?t l?p ban d?u */
+  71   1          P1 = 0xff;          // Thi?t l?p các chân c?a Port 1 làm d?u vào
+  72   1          P2 = 0;             // Xóa d? li?u Port 2
+  73   1          P0 = 0;             // Xóa d? li?u Port 0
+  74   1          EA = 1;             // Cho phép ng?t toàn c?c
+  75   1          LATCH = 0;          // Chân LATCH ? m?c th?p
+  76   1          DATA = 0;           // Chân DATA ? m?c th?p
+  77   1          CLOCK = 0;          // Chân CLOCK ? m?c th?p
+  78   1      
+  79   1          /* B?t d?u hi?n th? LED ma tr?n */
+  80   1          Matrix_StartDisplay();
+  81   1      
+  82   1          /* Kh?i t?o trò choi */
+  83   1          Game_Init();
+  84   1      
+  85   1          /* Vòng l?p chính d? x? lý bàn phím */
+  86   1          while(1) {
+  87   2              key_clicked = keypad[Keypad_Check()];   // L?y phím nh?n hi?n t?i
+  88   2              if((pre_key_clicked != key_clicked) && (key_clicked != 10)) {
+  89   3                  // Khi trò choi chua b?t d?u và nh?n phím 's'
+  90   3                  if ((gameState == GAME_OVER) && (key_clicked == 's')) {
+  91   4                      Game_Init();          // Kh?i t?o l?i trò choi
+  92   4                      Game_Start();         // B?t d?u trò choi
+  93   4                  }
+  94   3                  else if (gameState == GAME_PLAYING) {
+  95   4                      snakeDirection = key_clicked;   
+  96   4      // C?p nh?t hu?ng di chuy?n c?a r?n
+  97   4                  }
+  98   3              }
+  99   2              pre_key_clicked = key_clicked;      // Luu phím nh?n tru?c dó
+ 100   2          }
+ 101   1      }
+ 102          void Snake_Display(){
+ 103   1          unsigned char counter2 = 0;
+ 104   1          Display_Clear();      // Xóa màn hình hi?n th? (các di?m tru?c dó)
+ 105   1          Apple_Display();      // Hi?n th? v? trí c?a táo
+ 106   1      
+ 107   1          // Duy?t qua t?t c? các ph?n c?a r?n và hi?n th? chúng
+ 108   1          for(counter2 = 0; counter2 < snakeLength; counter2++){
+ 109   2              // Hi?n th? m?i ph?n c?a r?n
+ 110   2              Display_Point(snake[counter2]);
+ 111   2          }
+ 112   1      }
+ 113          
+ 114          void Snake_Step(){
+ 115   1          unsigned char counter2 = 0;
+ 116   1          // Luu v? trí duôi r?n
+C51 COMPILER V9.60.7.0   MAIN                                                              12/01/2024 23:40:04 PAGE 3   
+
+ 117   1          Point snake_tail;
+ 118   1          snake_tail.x = snake[snakeLength - 1].x;
+ 119   1          snake_tail.y = snake[snakeLength - 1].y;
+ 120   1      
+ 121   1          switch (snakeDirection)
+ 122   1          {
+ 123   2              // Di chuy?n r?n sang ph?i
+ 124   2              case 'r':
+ 125   2                  for(counter2 = snakeLength - 1; counter2 > 0; counter2--){
+ 126   3                      // Di chuy?n t?ng ph?n c?a r?n t? duôi v? d?u
+ 127   3                      snake[counter2].x = snake[counter2 - 1].x;
+ 128   3                      snake[counter2].y = snake[counter2 - 1].y;
+ 129   3                  }
+ 130   2                  // Di chuy?n d?u r?n sang ph?i
+ 131   2                  snake[0].x = snake[0].x + 1;
+ 132   2                  if(snake[0].x == 8){
+ 133   3                      // N?u r?n va vào c?nh ph?i, dua d?u r?n v? phía trái
+ 134   3                      snake[0].x = 0;
+ 135   3                  }
+ 136   2                  break;
+ 137   2      
+ 138   2              // Di chuy?n r?n sang trái
+ 139   2              case 'l':
+ 140   2                  for(counter2 = snakeLength - 1; counter2 > 0; counter2--){
+ 141   3                      // Di chuy?n t?ng ph?n c?a r?n t? duôi v? d?u
+ 142   3                      snake[counter2].x = snake[counter2 - 1].x;
+ 143   3                      snake[counter2].y = snake[counter2 - 1].y;
+ 144   3                  }
+ 145   2                  // Di chuy?n d?u r?n sang trái
+ 146   2                  snake[0].x--;
+ 147   2                  if(snake[0].x == 255){
+ 148   3                      // N?u r?n va vào c?nh trái, dua d?u r?n v? phía ph?i
+ 149   3                      snake[0].x = 7;
+ 150   3                  }
+ 151   2                  break;
+ 152   2      
+ 153   2              // Di chuy?n r?n lên trên
+ 154   2              case 'u':
+ 155   2                  for(counter2 = snakeLength - 1; counter2 > 0; counter2--){
+ 156   3                      // Di chuy?n t?ng ph?n c?a r?n t? duôi v? d?u
+ 157   3                      snake[counter2].x = snake[counter2 - 1].x;
+ 158   3                      snake[counter2].y = snake[counter2 - 1].y;
+ 159   3                  }
+ 160   2                  // Di chuy?n d?u r?n lên trên
+ 161   2                  snake[0].y++;
+ 162   2                  if(snake[0].y == 8){
+ 163   3                      // N?u r?n va vào c?nh trên, dua d?u r?n v? phía du?i
+ 164   3                      snake[0].y = 0;
+ 165   3                  }
+ 166   2                  break;
+ 167   2      
+ 168   2              // Di chuy?n r?n xu?ng du?i
+ 169   2              case 'd':
+ 170   2                  for(counter2 = snakeLength - 1; counter2 > 0; counter2--){
+ 171   3                      // Di chuy?n t?ng ph?n c?a r?n t? duôi v? d?u
+ 172   3                      snake[counter2].x = snake[counter2 - 1].x;
+ 173   3                      snake[counter2].y = snake[counter2 - 1].y;
+ 174   3                  }
+ 175   2                  // Di chuy?n d?u r?n xu?ng du?i
+ 176   2                  snake[0].y--;
+ 177   2                  if(snake[0].y == 255){
+ 178   3                      // N?u r?n va vào c?nh du?i, dua d?u r?n v? phía trên
+C51 COMPILER V9.60.7.0   MAIN                                                              12/01/2024 23:40:04 PAGE 4   
+
+ 179   3                      snake[0].y = 7;
+ 180   3                  }
+ 181   2                  break;
+ 182   2      
+ 183   2              default:
+ 184   2                  break;
+ 185   2          }
+ 186   1      
+ 187   1          // Ki?m tra n?u r?n an du?c táo
+ 188   1          if((snake[0].x == apple.x) && (snake[0].y == apple.y)){
+ 189   2              // Tang chi?u dài c?a r?n: thêm ph?n duôi m?i vào v? trí c?a duôi cu
+ 190   2              snake[snakeLength].x = snake_tail.x;
+ 191   2              snake[snakeLength].y = snake_tail.y;
+ 192   2              snakeLength++;        // Tang d? dài r?n
+ 193   2              Apple_Create();       // T?o l?i táo ? v? trí m?i
+ 194   2          }
+ 195   1      
+ 196   1          // Ki?m tra n?u r?n d?ng ph?i chính nó
+ 197   1          if(isSnakeHitItself()){
+ 198   2              Game_Stop();        // D?ng trò choi n?u r?n t? va vào mình
+ 199   2          }
+ 200   1      
+ 201   1          // C?p nh?t hi?n th? c?a r?n trên màn hình
+ 202   1          Snake_Display();
+ 203   1      }
+ 204          
+ 205          unsigned char isSnakeHitItself() {
+ 206   1          unsigned char returnValue = 0;
+ 207   1          unsigned char counter2 = 0;
+ 208   1          // Duy?t qua t?t c? các ph?n c?a r?n, b?t d?u t? ph?n th? hai 
+ 209   1      
+ 210   1          for(counter2 = 1; counter2 < snakeLength; counter2++){
+ 211   2              // Ki?m tra d?u r?n có trùng v? trí v?i ph?n nào khác c?a r?n không
+ 212   2              returnValue = (snake[0].x == snake[counter2].x) && (snake[0].y == snake[counter2].y);
+ 213   2              if (returnValue) break; // N?u có va ch?m, d?ng vòng l?p
+ 214   2          }
+ 215   1          return returnValue; // Tr? v? 1 n?u r?n va vào chính nó, ngu?c l?i v? 0
+ 216   1      }
+ 217          void Apple_Display(){   // Hi?n th? táo t?i v? trí hi?n t?i c?a nó
+ 218   1          Display_Point(apple);
+ 219   1      }
+ 220          
+ 221          void Apple_Create(){
+ 222   1          unsigned char check = 1;
+ 223   1          unsigned char counter2 = 0;
+ 224   1          // L?p l?i cho d?n khi t?o m?t v? trí táo không trùng v?i ph?n nào c?a r?n
+ 225   1          do
+ 226   1          {
+ 227   2              // T?o m?t v? trí ng?u nhiên cho táo trong ph?m vi t? 0 d?n 7 
+ 228   2              apple.x = ((unsigned int) rand()) % 8;
+ 229   2              apple.y = ((unsigned int) rand()) % 8;
+ 230   2      
+ 231   2              // Ki?m tra xem táo có b? trùng v?i b?t k? ph?n nào c?a r?n không
+ 232   2              for (counter2 = 0; counter2 < snakeLength; counter2++)
+ 233   2              {
+ 234   3                  check = (apple.x == snake[counter2].x) && (apple.y == snake[counter2].y);
+ 235   3                  if(check) break; // N?u có trùng, thoát kh?i vòng l?p ki?m tra
+ 236   3              }
+ 237   2          }
+ 238   1          // Ti?p t?c n?u táo trùng v? trí v?i r?n
+ 239   1          while (check);
+ 240   1      }
+C51 COMPILER V9.60.7.0   MAIN                                                              12/01/2024 23:40:04 PAGE 5   
+
+ 241          
+ 242          void Display_Clear(){
+ 243   1          unsigned char counter2 = 0;
+ 244   1          // Duy?t qua t?t c? các v? trí trên màn hình 
+ 245   1          for (counter2 = 0; counter2 < 8; counter2++) {
+ 246   2              // Ð?t t?t c? các di?m trên màn hình v? 0 (t?c là làm m?i màn hình)
+ 247   2              displayBuffer[counter2] = 0;
+ 248   2          }
+ 249   1      }
+ 250          /* Hi?n th? m?t di?m trên màn hình */
+ 251          void Display_Point(Point point){
+ 252   1          unsigned char x = point.x;
+ 253   1          unsigned char y = point.y;
+ 254   1          // C?p nh?t b? nh? d?m hi?n th? (displayBuffer) b?ng cách d?t bit t?i v? trí (x, y) thành 1
+ 255   1          displayBuffer[7 - y] = displayBuffer[7 - y] | (1 << (7 - x));
+ 256   1      }
+ 257          
+ 258          /* Ki?m tra v? trí phím trên bàn phím ma tr?n */
+ 259          char Keypad_Check(){
+ 260   1          unsigned short clickPos = 0;
+ 261   1          // Cài d?t P1 v?i các giá tr? d? quét các c?t c?a bàn phím
+ 262   1          P1 = 0xef;  // Ch?n c?t 1
+ 263   1          clickPos = (clickPos << 4) | (P1 & 0x0f); // Luu tr?ng thái c?a c?t 1
+ 264   1          P1 = 0xdf;  // Ch?n c?t 2
+ 265   1          clickPos = (clickPos << 4) | (P1 & 0x0f); // Luu tr?ng thái c?a c?t 2
+ 266   1          P1 = 0xbf;  // Ch?n c?t 3
+ 267   1          clickPos = (clickPos << 4) | (P1 & 0x0f); // Luu tr?ng thái c?a c?t 3
+ 268   1          P1 = 0x7f;  // Ch?n c?t 4
+ 269   1          clickPos = (clickPos << 4) | (P1 & 0x0f); // Luu tr?ng thái c?a c?t 4
+ 270   1          // Tr? v? v? trí c?a phím dã nh?n
+ 271   1          return Keypad_Position(clickPos);
+ 272   1      }
+ 273          /* Xác d?nh v? trí phím trong bàn phím ma tr?n */
+ 274          char Keypad_Position(unsigned short value){
+ 275   1          char returnvalue = 16;
+ 276   1          // Ki?m tra giá tr? c?a `value` (là tr?ng thái c?a bàn phím sau khi quét)
+ 277   1          switch (value & 0xff)
+ 278   1          {
+ 279   2              case 0xf7: returnvalue = 0; break;
+ 280   2              case 0xfb: returnvalue = 1; break;
+ 281   2              case 0xfd: returnvalue = 2; break;
+ 282   2              case 0xfe: returnvalue = 3; break;
+ 283   2              case 0x7f: returnvalue = 4; break;
+ 284   2              case 0xbf: returnvalue = 5; break;
+ 285   2              case 0xdf: returnvalue = 6; break;
+ 286   2              case 0xef: returnvalue = 7; break;
+ 287   2              default:
+ 288   2                  value = value >> 8;  // D?ch 8 bit ki?m tra ph?n trên c?a `value`
+ 289   2                  switch (value & 0xff)
+ 290   2                  {
+ 291   3                      case 0xf7: returnvalue = 8; break;
+ 292   3                      case 0xfb: returnvalue = 9; break;
+ 293   3                      case 0xfd: returnvalue = 10; break;
+ 294   3                      case 0xfe: returnvalue = 11; break;
+ 295   3                      case 0x7f: returnvalue = 12; break;
+ 296   3                      case 0xbf: returnvalue = 13; break;
+ 297   3                      case 0xdf: returnvalue = 14; break;
+ 298   3                      case 0xef: returnvalue = 15; break;
+ 299   3                  }
+ 300   2                  break;
+ 301   2          }
+ 302   1          return returnvalue;
+C51 COMPILER V9.60.7.0   MAIN                                                              12/01/2024 23:40:04 PAGE 6   
+
+ 303   1      }
+ 304          void Timer0_Isr(void) interrupt 1
+ 305          {
+ 306   1          TL0 = 0x00;     // Ð?t l?i giá tr? th?p c?a b? d?m Timer0
+ 307   1          TH0 = 0x04;     // Ð?t l?i giá tr? cao c?a b? d?m Timer0
+ 308   1          timer0_counter++;   // Tang giá tr? c?a bi?n d?m Timer0
+ 309   1          if(timer0_counter == TIMER0_COUNTER_MAX){
+ 310   2              timer0_counter = 0;  // N?u giá tr? d?m d?t gi?i h?n, reset l?i b? d?m
+ 311   2              Snake_Step();   // G?i hàm x? lý bu?c di chuy?n c?a r?n
+ 312   2          }
+ 313   1          // Ð?t l?i giá tr? c?a Timer0 d? ti?p t?c d?m
+ 314   1      }
+ 315          void Game_Init(){
+ 316   1          snakeLength = 3;        // Kh?i t?o d? dài r?n
+ 317   1          apple.x = 5;          /* V? trí c?a qu? táo */
+ 318   1          apple.y = 5;
+ 319   1          
+ 320   1          snake[2].x = 3;       /* V? trí c?a các ph?n r?n */
+ 321   1          snake[2].y = 3;
+ 322   1          snake[1].x = 4;
+ 323   1          snake[1].y = 3;
+ 324   1          snake[0].x = 5;
+ 325   1          snake[0].y = 3;
+ 326   1          /* Hu?ng di chuy?n ban d?u */
+ 327   1          snakeDirection = 'r';       // 'r' là hu?ng ph?i
+ 328   1          gameState = GAME_OVER;    // Tr?ng thái trò choi b?t d?u là GAME_OVER
+ 329   1          Snake_Display();        // Hi?n th? r?n
+ 330   1      }
+ 331          void Game_Start(void)
+ 332          {
+ 333   1          TMOD &= 0xF0;     // Thi?t l?p ch? d? ho?t d?ng c?a Timer0 
+ 334   1          TMOD |= 0x01;     // Ch?n ch? d? 16-bit cho Timer0
+ 335   1          TL0 = 0x00;       // Ð?t l?i giá tr? th?p c?a Timer0
+ 336   1          TH0 = 0x04;       // Ð?t l?i giá tr? cao c?a Timer0
+ 337   1          TF0 = 0;          // Xóa c? ng?t TF0
+ 338   1          TR0 = 1;          // B?t d?u Timer0
+ 339   1      
+ 340   1          ET0 = 1;          // B?t ng?t Timer0
+ 341   1      
+ 342   1          // Tr?ng thái trò choi du?c chuy?n sang GAME_PLAYING
+ 343   1          gameState = GAME_PLAYING;
+ 344   1      }
+ 345          
+ 346          void Game_Stop(){
+ 347   1          TR0 = 0;         // D?ng Timer0
+ 348   1          gameState = GAME_OVER;  // Ð?t tr?ng thái trò choi là GAME_OVER
+ 349   1      }
+ 350          
+ 351          void Timer2_Isr(void) interrupt 5
+ 352          {
+ 353   1          TF2 = 0;          // Xóa c? ng?t Timer2
+ 354   1          DATA = timer2_counter == 0;  // Thi?t l?p DATA tùy thu?c vào giá tr? d?m
+ 355   1          CLOCK = 1;          // C?p nh?t tín hi?u CLOCK
+ 356   1          // Hi?n th? m?t giá tr? t? displayBuffer trên c?ng P0
+ 357   1          P0 = ~displayBuffer[7 - timer2_counter];  
+ 358   1          LATCH = 1;          // C?p nh?t tín hi?u LATCH
+ 359   1          timer2_counter++;     // Tang giá tr? d?m c?a Timer2
+ 360   1          // Reset giá tr? d?m khi d?t d?n 8
+ 361   1          if(timer2_counter == 8) timer2_counter = 0;  
+ 362   1          CLOCK = 0;          // T?t tín hi?u CLOCK
+ 363   1          LATCH = 0;          // T?t tín hi?u LATCH
+ 364   1      }
+C51 COMPILER V9.60.7.0   MAIN                                                              12/01/2024 23:40:04 PAGE 7   
+
+ 365          
+ 366          void Matrix_StartDisplay(void)
+ 367          {
+ 368   1          T2MOD = 0;            // Ð?t l?i các thanh ghi di?u khi?n c?a Timer2
+ 369   1          T2CON = 0;            // Ð?t l?i các thanh ghi c?u hình Timer2
+ 370   1          TL2 = 0xCD;           // Ð?t giá tr? th?p c?a Timer2
+ 371   1          TH2 = 0xF8;           // Ð?t giá tr? cao c?a Timer2
+ 372   1          RCAP2L = 0xCD;        // Ð?t giá tr? n?p l?i th?p c?a Timer2
+ 373   1          RCAP2H = 0xF8;        // Ð?t giá tr? n?p l?i cao c?a Timer2
+ 374   1          TR2 = 1;              // B?t Timer2
+ 375   1          ET2 = 1;              // B?t ng?t Timer2
+ 376   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1333    ----
+   CONSTANT SIZE    =     17    ----
+   XDATA SIZE       =    136    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      6      10
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

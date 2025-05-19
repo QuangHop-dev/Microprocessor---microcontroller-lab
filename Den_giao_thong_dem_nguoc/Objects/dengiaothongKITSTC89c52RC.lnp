@@ -1,0 +1,4 @@
+".\Objects\STARTUP.obj",
+".\Objects\main.obj" 
+TO ".\Objects\dengiaothongKITSTC89c52RC" 
+PRINT(".\Listings\dengiaothongKITSTC89c52RC.m51") RAMSIZE(256) 

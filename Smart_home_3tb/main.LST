@@ -1,0 +1,169 @@
+C51 COMPILER V9.60.7.0   MAIN                                                              12/01/2024 22:00:03 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN main.OBJ
+COMPILER INVOKED BY: D:\Keil_v5\C51\BIN\C51.EXE main.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND TABS(2)
+
+line level    source
+
+   1          #include"reg51.h"
+   2          #include"XPT2046.h"
+   3          
+   4          /*
+   5          0xFF30CF: 1
+   6          0xFF18E7: 2
+   7          */
+   8          
+   9          sbit button = P3^3;
+  10          #define Display P0
+  11          unsigned char code Code7segCatot[] = {0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d,
+  12                                               0x7d, 0x07, 0x7f, 0x6f, 0x77};
+  13                                     
+  14          unsigned char Time[6] = {0x10, 0x01, 0x16, 0x24, 0x10, 0x07};
+  15          
+  16          unsigned char irKey = 0;
+  17          unsigned long bitPattern = 0;
+  18          unsigned long newKey = 0;
+  19          unsigned long pre_newKey = 0;
+  20          unsigned char timerValue;
+  21          unsigned char msCount = 0;
+  22          
+  23          uint temp,count;
+  24          char pulseCount = 0;
+  25          void Timer0_Init(void);
+  26          unsigned char Decode_IRKey(unsigned char key);
+  27          void Timer1_Init(void);
+  28          void delay(int time);
+  29          void HienThiSoChay(int demA, int demB);
+  30          
+  31          sbit led1=P2^0;
+  32          sbit led2=P2^2;
+  33          sbit led3=P2^4;
+  34          void main(void){
+  35   1        P2 = 0xff;
+  36   1        Timer0_Init();
+  37   1        EA = 1; 
+  38   1        while (1)
+  39   1          {
+  40   2              if(count==50)
+  41   2              {
+  42   3                count=0; 
+  43   3              temp = Read_AD_Data(0xA4);    
+  44   3              }
+  45   2              count++;
+  46   2              if(temp<=10)
+  47   2                led2=0;
+  48   2              else
+  49   2                led2=1;
+  50   2              if ((newKey != 0) && (pre_newKey != newKey)) 
+  51   2              {
+  52   3                  irKey = Decode_IRKey(newKey);  
+  53   3                  
+  54   3                  switch (irKey) {
+  55   4                      case 1:  
+C51 COMPILER V9.60.7.0   MAIN                                                              12/01/2024 22:00:03 PAGE 2   
+
+  56   4                          led1 = 1;  
+  57   4                          break;
+  58   4                      case 2:  
+  59   4                          led1 = 0;  
+  60   4                      default:
+  61   4                          break;
+  62   4                  }
+  63   3              }
+  64   2              pre_newKey = newKey;
+  65   2              if(button == 1)
+  66   2                  delay(200);
+  67   2                  if(button == 0)
+  68   2                      HienThiSoChay(5,0);
+  69   2        } 
+  70   1      }
+  71          
+  72          void HienThiSoChay(int demA, int demB) {
+  73   1        int tanso;
+  74   1        int dem;
+  75   1        for (dem = demA; dem >= demB; dem--) {
+  76   2       
+  77   2            Display = Code7segCatot[dem];
+  78   2            delay(100000);            
+  79   2      
+  80   2        }
+  81   1          led3 = ~led3;
+  82   1      } 
+*** WARNING C280 IN LINE 73 OF main.c: 'tanso': unreferenced local variable
+  83          
+  84          void delay(int time)
+  85          {
+  86   1          while(--time);
+  87   1      }
+  88          
+  89          unsigned char Decode_IRKey(unsigned char key){
+  90   1        unsigned char returnValue = 0;
+  91   1        switch (key)
+  92   1        {
+  93   2          case 0xFF30CF:
+  94   2            returnValue = 1;
+  95   2            break;
+  96   2          case 0xFF18E7:
+  97   2            returnValue = 2;
+  98   2            break; 
+  99   2        }
+ 100   1        return returnValue;
+ 101   1      }
+ 102          
+ 103          void timer0_isr() interrupt 1
+ 104          {
+ 105   1        if (msCount < 50)
+ 106   1          msCount++;
+ 107   1        TH0 = 0xFC; 
+ 108   1        TL0 = 0x67;
+ 109   1      } 
+ 110          void externalIntr0_ISR() interrupt 0
+ 111          {
+ 112   1        timerValue = msCount;
+ 113   1        msCount = 0;
+ 114   1        TH0 = 0xFC; 
+ 115   1        TL0 = 0x67;
+ 116   1        pulseCount++;
+C51 COMPILER V9.60.7.0   MAIN                                                              12/01/2024 22:00:03 PAGE 3   
+
+ 117   1        if ((timerValue >= 50 )) 
+ 118   1        {
+ 119   2          pulseCount = -2; 
+ 120   2          bitPattern = 0;
+ 121   2        }
+ 122   1        else if ((pulseCount >= 0 ) && (pulseCount < 32)) 
+ 123   1        {
+ 124   2          if (timerValue >= 2 ) 
+ 125   2            bitPattern |= (unsigned long)1 << (31 - pulseCount);
+ 126   2        }
+ 127   1        else if (pulseCount >= 32 ) 
+ 128   1        { 
+ 129   2          newKey = bitPattern; 
+ 130   2          pulseCount = 0;
+ 131   2        }
+ 132   1      }
+ 133          void Timer0_Init(){
+ 134   1        TMOD |= 0x01; 
+ 135   1        TH0 = 0xFC; 
+ 136   1        TL0 = 0x67;
+ 137   1        TR0 = 1; 
+ 138   1        ET0 = 1; 
+ 139   1        IT0 = 1; 
+ 140   1        EX0 = 1; 
+ 141   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    449    ----
+   CONSTANT SIZE    =     11    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     26       6
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  1 WARNING(S),  0 ERROR(S)

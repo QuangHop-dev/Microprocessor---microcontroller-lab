@@ -1,0 +1,154 @@
+C51 COMPILER V9.60.7.0   DS1302                                                            10/07/2024 16:01:46 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE DS1302
+OBJECT MODULE PLACED IN ds1302.OBJ
+COMPILER INVOKED BY: D:\Keil_v5\C51\BIN\C51.EXE ds1302.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND TABS(2)
+
+line level    source
+
+   1          #include"ds1302.h"
+   2          
+   3          uchar code READ_RTC_ADDR[7] = {0x81, 0x83, 0x85, 0x87, 0x89, 0x8b, 0x8d}; 
+   4          uchar code WRITE_RTC_ADDR[7] = {0x80, 0x82, 0x84, 0x86, 0x88, 0x8a, 0x8c};
+   5          
+   6          uchar TIME[7] = {0x00, 0x03, 0x16, 0x07, 0x10, 0x24, 0x24};
+   7          
+   8          /*******************************************************************************
+   9          * 
+  10          *******************************************************************************/
+  11          
+  12          void Ds1302Write(uchar addr, uchar dat)
+  13          {    
+  14   1        uchar n;
+  15   1      
+  16   1          EA = 0;
+  17   1        RST = 0;
+  18   1        _nop_();
+  19   1      
+  20   1        SCLK = 0;
+  21   1        _nop_();
+  22   1        RST = 1; 
+  23   1        _nop_();
+  24   1      
+  25   1        for (n=0; n<8; n++)
+  26   1        {
+  27   2          DSIO = addr & 0x01;
+  28   2          addr >>= 1;
+  29   2          SCLK = 1;
+  30   2          _nop_();
+  31   2          SCLK = 0;
+  32   2          _nop_();
+  33   2        }
+  34   1        for (n=0; n<8; n++)
+  35   1        {
+  36   2          DSIO = dat & 0x01;
+  37   2          dat >>= 1;
+  38   2          SCLK = 1;
+  39   2          _nop_();
+  40   2          SCLK = 0;
+  41   2          _nop_();  
+  42   2        } 
+  43   1           
+  44   1        RST = 0;
+  45   1        _nop_();
+  46   1          EA = 1;
+  47   1      }
+  48          
+  49          /*******************************************************************************
+  50          * 
+  51          *******************************************************************************/
+  52          
+  53          uchar Ds1302Read(uchar addr)
+  54          {   
+  55   1          uchar n,dat,dat1;
+C51 COMPILER V9.60.7.0   DS1302                                                            10/07/2024 16:01:46 PAGE 2   
+
+  56   1          
+  57   1          EA =0;
+  58   1        RST = 0;
+  59   1        _nop_();
+  60   1      
+  61   1        SCLK = 0;
+  62   1        _nop_();
+  63   1        RST = 1;
+  64   1        _nop_();
+  65   1      
+  66   1        for(n=0; n<8; n++)
+  67   1        {
+  68   2          DSIO = addr & 0x01;
+  69   2          addr >>= 1;
+  70   2          SCLK = 1;
+  71   2          _nop_();
+  72   2          SCLK = 0;
+  73   2          _nop_();
+  74   2        }
+  75   1        _nop_();
+  76   1        for(n=0; n<8; n++)
+  77   1        {
+  78   2          dat1 = DSIO;
+  79   2          dat = (dat>>1) | (dat1<<7);
+  80   2          SCLK = 1;
+  81   2          _nop_();
+  82   2          SCLK = 0;
+  83   2          _nop_();
+  84   2        }
+  85   1      
+  86   1        RST = 0;
+  87   1        _nop_();  
+  88   1        SCLK = 1;
+  89   1        _nop_();
+  90   1        DSIO = 0;
+  91   1        _nop_();
+  92   1        DSIO = 1;
+  93   1        _nop_();
+  94   1          EA = 1;
+  95   1        return dat; 
+  96   1      }
+  97          
+  98          /*******************************************************************************
+  99          *
+ 100          *******************************************************************************/
+ 101          
+ 102          void Ds1302Init()
+ 103          {
+ 104   1        uchar n;
+ 105   1        Ds1302Write(0x8E,0X00);    
+ 106   1        for (n=0; n<7; n++)
+ 107   1        {
+ 108   2          Ds1302Write(WRITE_RTC_ADDR[n],TIME[n]); 
+ 109   2        }
+ 110   1        Ds1302Write(0x8E,0x80);    
+ 111   1      }
+ 112          
+ 113          /*******************************************************************************
+ 114          * 
+ 115          *******************************************************************************/
+ 116          
+ 117          void Ds1302ReadTime()
+C51 COMPILER V9.60.7.0   DS1302                                                            10/07/2024 16:01:46 PAGE 3   
+
+ 118          {
+ 119   1        uchar n;
+ 120   1        for (n=0; n<7; n++)
+ 121   1        {
+ 122   2          TIME[n] = Ds1302Read(READ_RTC_ADDR[n]);
+ 123   2        }
+ 124   1          
+ 125   1      }
+ 126          
+ 127          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    192    ----
+   CONSTANT SIZE    =     14    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      7    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
